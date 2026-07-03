@@ -656,34 +656,25 @@ def aggregate_signal(signals: dict) -> tuple:
 #  FUNDAMENTAL INDICATORS
 # ─────────────────────────────────────────────────
 def get_fundamentals(info: dict) -> dict:
-    """Extract 2 core fundamental indicators: EV/EBITDA and PEG Ratio."""
-    pe_ratio     = info.get("trailingPE") or info.get("forwardPE")
-    peg_ratio    = info.get("pegRatio")
-    ev_ebitda    = info.get("enterpriseToEbitda")
-    pb_ratio     = info.get("priceToBook")
-    eps_growth   = info.get("earningsQuarterlyGrowth")
-    revenue_growth = info.get("revenueGrowth")
-    market_cap   = info.get("marketCap")
-    roe          = info.get("returnOnEquity")
-    debt_equity  = info.get("debtToEquity")
-    fcf          = info.get("freeCashflow")
-
+    """Extract exactly 12 fundamental indicators."""
     return {
-        "pe_ratio":      pe_ratio,
-        "peg_ratio":     peg_ratio,
-        "ev_ebitda":     ev_ebitda,
-        "pb_ratio":      pb_ratio,
-        "eps_growth":    eps_growth,
-        "revenue_growth":revenue_growth,
-        "market_cap":    market_cap,
-        "roe":           roe,
-        "debt_equity":   debt_equity,
-        "fcf":           fcf,
+        "trailing_pe":      info.get("trailingPE"),
+        "forward_pe":       info.get("forwardPE"),
+        "peg_ratio":        info.get("pegRatio"),
+        "ev_ebitda":        info.get("enterpriseToEbitda"),
+        "price_to_sales":   info.get("priceToSalesTrailing12Months"),
+        "price_to_book":     info.get("priceToBook"),
+        "roe":              info.get("returnOnEquity"),
+        "roa":              info.get("returnOnAssets"),
+        "operating_margin": info.get("operatingMargins"),
+        "debt_equity":      info.get("debtToEquity"),
+        "dividend_yield":   info.get("dividendYield"),
+        "fcf":              info.get("freeCashflow"),
     }
 
 def interpret_peg(peg) -> tuple:
     if peg is None: return "N/A", "neutral"
-    if peg < 0:     return f"{peg:.2f} (Negative EPS)", "neutral"
+    if peg < 0:     return f"{peg:.2f} (Negative Growth)", "neutral"
     if peg < 1:     return f"{peg:.2f} ✅ Undervalued", "bull"
     if peg < 2:     return f"{peg:.2f} ⚖️ Fair Value", "neutral"
     return f"{peg:.2f} ⚠️ Overvalued", "bear"
@@ -694,6 +685,7 @@ def interpret_ev_ebitda(ev) -> tuple:
     if ev < 10:    return f"{ev:.1f}x ✅ Cheap", "bull"
     if ev < 20:    return f"{ev:.1f}x ⚖️ Moderate", "neutral"
     return f"{ev:.1f}x ⚠️ Expensive", "bear"
+
 
 # ─────────────────────────────────────────────────
 #  PRICE MOVEMENT INSIGHTS
@@ -1395,88 +1387,85 @@ with tab4:
 # ║  TAB 5 — FUNDAMENTALS                       ║
 # ╚══════════════════════════════════════════════╝
 with tab5:
-    peg_label,   peg_cls   = interpret_peg(fundamentals.get("peg_ratio"))
-    ev_label,    ev_cls    = interpret_ev_ebitda(fundamentals.get("ev_ebitda"))
-    sig_peg_color = {"bull":"#10b981","bear":"#f43f5e","neutral":"#f59e0b"}.get(peg_cls,"#f59e0b")
-    sig_ev_color  = {"bull":"#10b981","bear":"#f43f5e","neutral":"#f59e0b"}.get(ev_cls,"#f59e0b")
-
-    st.markdown('<div class="section-header">📐 Core Fundamental Indicators</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📐 12 Core Fundamental Indicators</div>', unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:12px; color:#475569; margin-bottom:16px;">
-      Two fundamental indicators with the highest predictive signal-to-noise ratio for equity valuation.
+      Comprehensive fundamental health check across valuation, profitability, debt, cash flow, and dividends.
     </div>
     """, unsafe_allow_html=True)
 
+    # Valuation vs Profitability details
     col_f1, col_f2 = st.columns(2, gap="large")
+
+    peg_label, peg_cls = interpret_peg(fundamentals.get("peg_ratio"))
+    ev_label, ev_cls = interpret_ev_ebitda(fundamentals.get("ev_ebitda"))
+    sig_peg_color = {"bull": "#10b981", "bear": "#f43f5e", "neutral": "#f59e0b"}.get(peg_cls, "#f59e0b")
+    sig_ev_color = {"bull": "#10b981", "bear": "#f43f5e", "neutral": "#f59e0b"}.get(ev_cls, "#f59e0b")
 
     with col_f1:
         st.markdown(f"""
-        <div class="metric-card" style="padding:28px 28px; border-left: 4px solid {sig_peg_color};">
-          <div class="metric-label">PEG Ratio (Price/Earnings-to-Growth)</div>
-          <div style="font-size:36px; font-weight:800; font-family:'JetBrains Mono',monospace;
-                      color:{sig_peg_color}; margin:10px 0 6px 0;">{peg_label}</div>
-          <div style="font-size:12px; color:#64748b; line-height:1.8; margin-top:12px;">
-            <b style="color:#94a3b8;">What it means:</b><br>
-            The PEG ratio divides the P/E ratio by the EPS growth rate.<br><br>
-            <span style="color:#10b981;">PEG &lt; 1.0</span> → Potentially undervalued<br>
-            <span style="color:#f59e0b;">PEG 1.0–2.0</span> → Fairly valued<br>
-            <span style="color:#f43f5e;">PEG &gt; 2.0</span> → Potentially overvalued<br><br>
-            <b style="color:#94a3b8;">Why it matters:</b> P/E alone ignores growth.
-            A high-growth company can justify a high P/E — PEG normalizes for this.
+        <div class="metric-card" style="padding:24px; border-left: 4px solid {sig_peg_color};">
+          <div class="metric-label">PEG Ratio</div>
+          <div style="font-size:32px; font-weight:800; font-family:'JetBrains Mono',monospace;
+                      color:{sig_peg_color}; margin:6px 0;">{peg_label}</div>
+          <div style="font-size:11px; color:#64748b; line-height:1.6;">
+            Divides P/E by quarterly growth. Value &lt; 1.0 indicates undervalued growth.
           </div>
         </div>
         """, unsafe_allow_html=True)
 
     with col_f2:
         st.markdown(f"""
-        <div class="metric-card" style="padding:28px 28px; border-left: 4px solid {sig_ev_color};">
-          <div class="metric-label">EV/EBITDA (Enterprise Value / EBITDA)</div>
-          <div style="font-size:36px; font-weight:800; font-family:'JetBrains Mono',monospace;
-                      color:{sig_ev_color}; margin:10px 0 6px 0;">{ev_label}</div>
-          <div style="font-size:12px; color:#64748b; line-height:1.8; margin-top:12px;">
-            <b style="color:#94a3b8;">What it means:</b><br>
-            EV/EBITDA is the capital-structure-neutral valuation multiple.<br><br>
-            <span style="color:#10b981;">EV/EBITDA &lt; 10x</span> → Cheap / value zone<br>
-            <span style="color:#f59e0b;">EV/EBITDA 10–20x</span> → Moderate / fair<br>
-            <span style="color:#f43f5e;">EV/EBITDA &gt; 20x</span> → Premium / expensive<br><br>
-            <b style="color:#94a3b8;">Why it matters:</b> Ignores capital structure differences
-            and accounting D&A — ideal for cross-sector comparisons.
+        <div class="metric-card" style="padding:24px; border-left: 4px solid {sig_ev_color};">
+          <div class="metric-label">EV/EBITDA</div>
+          <div style="font-size:32px; font-weight:800; font-family:'JetBrains Mono',monospace;
+                      color:{sig_ev_color}; margin:6px 0;">{ev_label}</div>
+          <div style="font-size:11px; color:#64748b; line-height:1.6;">
+            Capital-structure-neutral multiple. Value &lt; 10x indicates cheap valuation.
           </div>
         </div>
         """, unsafe_allow_html=True)
 
-    # Additional fundamentals table
-    st.markdown('<div class="section-header">📋 Full Fundamental Snapshot</div>', unsafe_allow_html=True)
-    pe  = fundamentals.get("pe_ratio")
-    pb  = fundamentals.get("pb_ratio")
-    roe = fundamentals.get("roe")
-    de  = fundamentals.get("debt_equity")
-    mc  = fundamentals.get("market_cap")
-    fcf = fundamentals.get("fcf")
-    eps_g = fundamentals.get("eps_growth")
-    rev_g = fundamentals.get("revenue_growth")
-    tp    = price_ins.get("target_price")
+    # 12 Indicators grid definition
+    t_pe = fundamentals.get("trailing_pe")
+    f_pe = fundamentals.get("forward_pe")
+    peg  = fundamentals.get("peg_ratio")
+    ev   = fundamentals.get("ev_ebitda")
+    ps   = fundamentals.get("price_to_sales")
+    pb   = fundamentals.get("price_to_book")
+    roe  = fundamentals.get("roe")
+    roa  = fundamentals.get("roa")
+    op_m = fundamentals.get("operating_margin")
+    de   = fundamentals.get("debt_equity")
+    div  = fundamentals.get("dividend_yield")
+    fcf  = fundamentals.get("fcf")
+    tp   = price_ins.get("target_price")
 
-    fund_rows = [
-        ("P/E Ratio (Trailing)",    f"{pe:.2f}" if pe else "N/A"),
-        ("PEG Ratio",               f"{fundamentals.get('peg_ratio'):.2f}" if fundamentals.get('peg_ratio') else "N/A"),
-        ("EV/EBITDA",               f"{fundamentals.get('ev_ebitda'):.2f}x" if fundamentals.get('ev_ebitda') else "N/A"),
-        ("Price / Book",            f"{pb:.2f}" if pb else "N/A"),
-        ("Return on Equity",        fmt_pct(roe)),
-        ("Debt / Equity",           f"{de:.2f}" if de else "N/A"),
-        ("Market Cap",              fmt_large(mc)),
-        ("Free Cash Flow",          fmt_large(fcf)),
-        ("EPS Growth (QoQ)",        fmt_pct(eps_g)),
-        ("Revenue Growth (YoY)",    fmt_pct(rev_g)),
-        ("Analyst Target Price",    f"${tp:.2f}" if tp else "N/A"),
+    twelve_indicators = [
+        ("1. Trailing P/E",      f"{t_pe:.2f}" if t_pe else "N/A",                  "Valuation vs past 12m earnings"),
+        ("2. Forward P/E",       f"{f_pe:.2f}" if f_pe else "N/A",                  "Valuation vs next 12m consensus"),
+        ("3. PEG Ratio",         f"{peg:.2f}" if peg else "N/A",                    "P/E adjusted for EPS growth rate"),
+        ("4. EV/EBITDA",         f"{ev:.2f}x" if ev else "N/A",                     "Firm value vs operating profit"),
+        ("5. Price / Sales",     f"{ps:.2f}x" if ps else "N/A",                     "Market capitalization relative to revenue"),
+        ("6. Price / Book",      f"{pb:.2f}x" if pb else "N/A",                     "Price relative to net asset value"),
+        ("7. Return on Equity",  fmt_pct(roe),                                      "Net profit generated per unit of equity"),
+        ("8. Return on Assets",  fmt_pct(roa),                                      "Efficiency in using assets to generate earnings"),
+        ("9. Operating Margin",  fmt_pct(op_m),                                     "Profit margin before interest & taxes"),
+        ("10. Debt to Equity",   f"{de:.2f}%" if de else "N/A",                     "Total debt relative to shareholder equity"),
+        ("11. Dividend Yield",   fmt_pct(div),                                      "Annual dividend payouts vs stock price"),
+        ("12. Free Cash Flow",   fmt_large(fcf),                                    "Operating cash minus capital expenditures"),
     ]
 
-    fund_cols = st.columns(3)
-    for i, (lbl, val) in enumerate(fund_rows):
-        fund_cols[i % 3].markdown(f"""
-        <div class="metric-card" style="padding:14px 16px; margin:4px 0;">
-          <div class="metric-label">{lbl}</div>
-          <div style="font-size:18px; font-weight:700; font-family:'JetBrains Mono',monospace; color:#f1f5f9;">{val}</div>
+    st.markdown('<div style="margin-top:20px;"></div>', unsafe_allow_html=True)
+    cols_12 = st.columns(4)
+    for idx, (label, val, desc) in enumerate(twelve_indicators):
+        cols_12[idx % 4].markdown(f"""
+        <div class="metric-card" style="padding:16px 18px; margin:4px 0; min-height:115px; display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <div class="metric-label" style="font-size:10px; color:#818cf8; font-weight:700;">{label}</div>
+            <div style="font-size:16px; font-weight:700; font-family:'JetBrains Mono',monospace; color:#f1f5f9; margin-top:4px;">{val}</div>
+          </div>
+          <div style="font-size:10px; color:#475569; margin-top:6px; line-height:1.3;">{desc}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1486,8 +1475,8 @@ with tab5:
         upside_color = "#10b981" if upside > 0 else "#f43f5e"
         upside_lbl = "Upside" if upside > 0 else "Downside"
         st.markdown(f"""
-        <div class="overall-signal {'bull' if upside > 0 else 'bear'}" style="margin-top:20px;">
-          <div class="overall-signal-title">Analyst Consensus</div>
+        <div class="overall-signal {'bull' if upside > 0 else 'bear'}" style="margin-top:24px;">
+          <div class="overall-signal-title">Analyst Price Target Consensus</div>
           <div class="overall-signal-value" style="color:{upside_color};">
             {'+' if upside > 0 else ''}{upside:.1f}% {upside_lbl}
           </div>
@@ -1496,6 +1485,7 @@ with tab5:
           </div>
         </div>
         """, unsafe_allow_html=True)
+
 
 # ─────────────────────────────────────────────────
 #  AIN MEMORY UPDATE (silent background)
